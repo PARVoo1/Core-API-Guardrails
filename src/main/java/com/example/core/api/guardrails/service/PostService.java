@@ -1,20 +1,26 @@
 package com.example.core.api.guardrails.service;
 
+import com.example.core.api.guardrails.dto.LikeDto;
+import com.example.core.api.guardrails.entity.AuthorType;
 import com.example.core.api.guardrails.entity.Comment;
 import com.example.core.api.guardrails.entity.Post;
 import com.example.core.api.guardrails.repository.CommentRepository;
 import com.example.core.api.guardrails.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PostService {
 
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final StringRedisTemplate redisTemplate;
 
     public Post createPost(Post post) {
         Post newPost = new Post();
@@ -33,10 +39,34 @@ public class PostService {
             newComment.setAuthorType(comment.getAuthorType());
             newComment.setContent(comment.getContent());
             newComment.setDepthLevel(1);
-            return commentRepository.save(newComment);
+            Comment savedComment = commentRepository.save(newComment);
+
+            String viralityKey="post:"+newComment.getPostId()+":virality";
+
+            long points=(savedComment.getAuthorType()== AuthorType.BOT)?1:50;
+
+            redisTemplate.opsForValue().increment(viralityKey,points);
+
+            return savedComment;
 
         }
         throw new RuntimeException("Post not found with id: " + comment.getPostId());
+    }
+
+    public void likePost(Long postId, LikeDto like) {
+        Optional<Post> postOpt = postRepository.findById(postId);
+        if (postOpt.isEmpty()) {
+          throw new RuntimeException("Post not found with id: " + postId);
+        }
+        String viralityKey="post:"+postId+":virality";
+        long viralityPoints=0;
+        if(like.getAuthorType()==AuthorType.USER){
+            viralityPoints=20;
+        }
+        if(viralityPoints>0){
+            redisTemplate.opsForValue().increment(viralityKey,viralityPoints);
+        }
+
     }
 
 }

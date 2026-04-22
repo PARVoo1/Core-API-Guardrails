@@ -1,5 +1,6 @@
 package com.example.core.api.guardrails.controller;
 
+import com.example.core.api.guardrails.dto.LikeDto;
 import com.example.core.api.guardrails.entity.Comment;
 import com.example.core.api.guardrails.entity.Post;
 import com.example.core.api.guardrails.service.PostService;
@@ -36,5 +37,17 @@ public class PostController {
             log.error("Exception occurred while trying to save comment",e);
         }
         return ResponseEntity.badRequest().build();
+    }
+    @PostMapping("/{postId}/like")
+    public ResponseEntity<String> likePost(@PathVariable Long postId, @RequestBody LikeDto like) {
+        try {
+            postService.likePost(postId, like);
+            return ResponseEntity.ok("Post liked successfully");
+        }catch(Exception e){
+            log.error("Exception occurred while trying to like post",e);
+            return ResponseEntity.badRequest().build();
+        }
+
+
     }
 }
