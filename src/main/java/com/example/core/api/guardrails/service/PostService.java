@@ -33,36 +33,44 @@ public class PostService {
         return postRepository.save(newPost);
     }
     public Comment createComment(Comment comment) {
-        Optional<Post> isPresent = postRepository.findById(comment.getPostId());
-
-        if (isPresent.isPresent()) {
-            if(comment.getAuthorType()== AuthorType.BOT){
-                String botCountKey = "post:" + comment.getPostId() + ":bot_count";
-                Long botCount = redisTemplate.opsForValue().increment(botCountKey);
-                if(botCount>100){
-                    throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bot comment limit exceeded");
-                }
-            }
-            Comment newComment = new Comment();
-            newComment.setPostId(comment.getPostId());
-            newComment.setAuthorId(comment.getAuthorId());
-            newComment.setAuthorType(comment.getAuthorType());
-            newComment.setContent(comment.getContent());
-            newComment.setDepthLevel(1);
-            Comment savedComment = commentRepository.save(newComment);
-
-
-
-            String viralityKey = "post:" + newComment.getPostId() + ":virality";
-
-            long points = (savedComment.getAuthorType() == AuthorType.BOT) ? 1 : 50;
-
-            redisTemplate.opsForValue().increment(viralityKey, points);
-
-            return savedComment;
-
+        postRepository.findById(comment.getPostId())
+                .orElseThrow(()->new RuntimeException("Post not found with id: "+comment.getPostId()));
+        int calculatedDepth=1;
+        if(comment.getParentCommentId()!=null){
+            Comment parentComment = commentRepository.findById(comment.getParentCommentId())
+                    .orElseThrow(() -> new RuntimeException("Parent comment not found with id: "));
+            calculatedDepth=parentComment.getDepthLevel()+1;
         }
-        throw new RuntimeException("Post not found with id: " + comment.getPostId());
+
+
+        if(comment.getAuthorType()== AuthorType.BOT){
+            if(calculatedDepth>20){
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid depth level");
+            }
+            String botCountKey = "post:" + comment.getPostId() + ":bot_count";
+            Long botCount = redisTemplate.opsForValue().increment(botCountKey);
+            if(botCount>100){
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bot comment limit exceeded");
+            }
+        }
+        Comment newComment = new Comment();
+        newComment.setPostId(comment.getPostId());
+        newComment.setAuthorId(comment.getAuthorId());
+        newComment.setAuthorType(comment.getAuthorType());
+        newComment.setContent(comment.getContent());
+        newComment.setParentCommentId(comment.getParentCommentId());
+        newComment.setDepthLevel(calculatedDepth);
+        Comment savedComment = commentRepository.save(newComment);
+
+
+
+        String viralityKey = "post:" + newComment.getPostId() + ":virality";
+
+        long points = (savedComment.getAuthorType() == AuthorType.BOT) ? 1 : 50;
+
+        redisTemplate.opsForValue().increment(viralityKey, points);
+
+        return savedComment;
     }
 
     public void likePost(Long postId, LikeDto like) {
