@@ -9,7 +9,9 @@ import com.example.core.api.guardrails.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
@@ -32,7 +34,15 @@ public class PostService {
     }
     public Comment createComment(Comment comment) {
         Optional<Post> isPresent = postRepository.findById(comment.getPostId());
+
         if (isPresent.isPresent()) {
+            if(comment.getAuthorType()== AuthorType.BOT){
+                String botCountKey = "post:" + comment.getPostId() + ":bot_count";
+                Long botCount = redisTemplate.opsForValue().increment(botCountKey);
+                if(botCount>100){
+                    throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bot comment limit exceeded");
+                }
+            }
             Comment newComment = new Comment();
             newComment.setPostId(comment.getPostId());
             newComment.setAuthorId(comment.getAuthorId());
@@ -41,11 +51,13 @@ public class PostService {
             newComment.setDepthLevel(1);
             Comment savedComment = commentRepository.save(newComment);
 
-            String viralityKey="post:"+newComment.getPostId()+":virality";
 
-            long points=(savedComment.getAuthorType()== AuthorType.BOT)?1:50;
 
-            redisTemplate.opsForValue().increment(viralityKey,points);
+            String viralityKey = "post:" + newComment.getPostId() + ":virality";
+
+            long points = (savedComment.getAuthorType() == AuthorType.BOT) ? 1 : 50;
+
+            redisTemplate.opsForValue().increment(viralityKey, points);
 
             return savedComment;
 
