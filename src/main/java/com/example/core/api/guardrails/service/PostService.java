@@ -39,16 +39,16 @@ public class PostService {
         return postRepository.save(newPost);
     }
     @Transactional
-    public Comment createComment(CommentDto comment) {
-        Post post=postRepository.findById(comment.getPostId())
-                .orElseThrow(()->new RuntimeException("Post not found with id: "+comment.getPostId()));
+    public Comment createComment(CommentDto comment,Long postId) {
+        Post post=postRepository.findById(postId)
+                .orElseThrow(()->new RuntimeException("Post not found with id: "+postId));
         int calculatedDepth=1;
         Comment parentComment;
         Long targetAuthorId=post.getAuthorId();
         AuthorType targetAuthorType=post.getAuthorType();
         if(comment.getParentCommentId()!=null){
             parentComment = commentRepository.findById(comment.getParentCommentId())
-                    .orElseThrow(() -> new RuntimeException("Parent comment not found with id: "));
+                    .orElseThrow(() -> new RuntimeException("Parent comment not found with id: "+comment.getParentCommentId()));
             calculatedDepth=parentComment.getDepthLevel()+1;
             targetAuthorId=parentComment.getAuthorId();
             targetAuthorType=parentComment.getAuthorType();
@@ -64,14 +64,14 @@ public class PostService {
             if(calculatedDepth>20){
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid depth level");
             }
-            String botCountKey = POST_KEY + comment.getPostId() + ":bot_count";
+            String botCountKey = POST_KEY + postId + ":bot_count";
             Long botCount = redisTemplate.opsForValue().increment(botCountKey);
             if(botCount!=null&&botCount>100){
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bot comment limit exceeded");
             }
         }
         Comment newComment = new Comment();
-        newComment.setPostId(comment.getPostId());
+        newComment.setPostId(postId);
         newComment.setAuthorId(comment.getAuthorId());
         newComment.setAuthorType(comment.getAuthorType());
         newComment.setContent(comment.getContent());
