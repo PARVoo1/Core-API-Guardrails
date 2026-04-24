@@ -26,6 +26,8 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final StringRedisTemplate redisTemplate;
 
+    private static final String POST_KEY ="post:";
+
     public Post createPost(Post post) {
         Post newPost = new Post();
         newPost.setAuthorId(post.getAuthorId());
@@ -53,16 +55,16 @@ public class PostService {
         if(comment.getAuthorType()== AuthorType.BOT){
             if (targetAuthorType==AuthorType.USER){
                 String coolDownKey="cooldown:bot_"+comment.getAuthorId()+":human_"+targetAuthorId;
-                if( redisTemplate.hasKey(coolDownKey)){
+                if(Boolean.TRUE.equals(redisTemplate.hasKey(coolDownKey)) ){
                     throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Bot is on cooldown");
                 }
             }
             if(calculatedDepth>20){
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid depth level");
             }
-            String botCountKey = "post:" + comment.getPostId() + ":bot_count";
+            String botCountKey = POST_KEY + comment.getPostId() + ":bot_count";
             Long botCount = redisTemplate.opsForValue().increment(botCountKey);
-            if(botCount>100){
+            if(botCount!=null&&botCount>100){
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bot comment limit exceeded");
             }
         }
@@ -77,7 +79,7 @@ public class PostService {
 
 
 
-        String viralityKey = "post:" + newComment.getPostId() + ":virality";
+        String viralityKey = POST_KEY + newComment.getPostId() + ":virality";
 
         long points = (savedComment.getAuthorType() == AuthorType.BOT) ? 1 : 50;
 
@@ -97,7 +99,7 @@ public class PostService {
         if (postOpt.isEmpty()) {
           throw new RuntimeException("Post not found with id: " + postId);
         }
-        String viralityKey="post:"+postId+":virality";
+        String viralityKey= POST_KEY +postId+":virality";
         long viralityPoints=0;
         if(like.getAuthorType()==AuthorType.USER){
             viralityPoints=20;
