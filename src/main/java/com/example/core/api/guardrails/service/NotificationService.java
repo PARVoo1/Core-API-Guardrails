@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.awt.*;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -24,13 +25,16 @@ public class NotificationService {
         log.info("Notification Service is running...");
 
         Set<String> keys=pendingKeys();
+        for(String key:keys){
+            processNotification(key);
+        }
 
     }
     private Set<String> pendingKeys(){
         Set<String> keys=new HashSet<>();
-        ScanOptions options=ScanOptions.scanOptions().match("user:*:pening").build();
+        ScanOptions options=ScanOptions.scanOptions().match("user:*:pending").build();
         redisTemplate.execute((RedisCallback<Void>)connection->{
-            try(Cursor<byte[]> cursor=connection.scan(options)) {
+            try(Cursor<byte[]> cursor=connection.keyCommands().scan(options)) {
                 while(cursor.hasNext()) {
                     keys.add(new String(cursor.next()));
                 }
@@ -42,5 +46,27 @@ public class NotificationService {
         });
         return keys;
     }
+    private void processNotification(String keys){
+        Long count= redisTemplate.opsForList().size(keys);
+        if(count==null || count<=0){
+            return;
+        }
+        List<String> message=redisTemplate.opsForList().leftPop(keys,count);
+        if(message==null||message.isEmpty()){
+            return;
+        }
+        String firstMessage=message.getFirst();
+        if(message.size()==1){
+
+            log.info("Push Notification Sent to User: {}",firstMessage);
+
+        }
+        else{
+            long otherCount=(long) message.size()-1;
+            log.info("Summarized Push Notification: {} and {} others interacted with your posts",firstMessage,otherCount);
+        }
+
+    }
+
 
 }
