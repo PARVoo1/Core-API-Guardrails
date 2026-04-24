@@ -1,6 +1,8 @@
 package com.example.core.api.guardrails.service;
 
+import com.example.core.api.guardrails.dto.CommentDto;
 import com.example.core.api.guardrails.dto.LikeDto;
+import com.example.core.api.guardrails.dto.PostDto;
 import com.example.core.api.guardrails.entity.AuthorType;
 import com.example.core.api.guardrails.entity.Comment;
 import com.example.core.api.guardrails.entity.Post;
@@ -28,7 +30,7 @@ public class PostService {
 
     private static final String POST_KEY ="post:";
 
-    public Post createPost(Post post) {
+    public Post createPost(PostDto post) {
         Post newPost = new Post();
         newPost.setAuthorId(post.getAuthorId());
         newPost.setAuthorType(post.getAuthorType());
@@ -37,7 +39,7 @@ public class PostService {
         return postRepository.save(newPost);
     }
     @Transactional
-    public Comment createComment(Comment comment) {
+    public Comment createComment(CommentDto comment) {
         Post post=postRepository.findById(comment.getPostId())
                 .orElseThrow(()->new RuntimeException("Post not found with id: "+comment.getPostId()));
         int calculatedDepth=1;

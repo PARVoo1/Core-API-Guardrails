@@ -1,6 +1,8 @@
 package com.example.core.api.guardrails.controller;
 
+import com.example.core.api.guardrails.dto.CommentDto;
 import com.example.core.api.guardrails.dto.LikeDto;
+import com.example.core.api.guardrails.dto.PostDto;
 import com.example.core.api.guardrails.entity.Comment;
 import com.example.core.api.guardrails.entity.Post;
 import com.example.core.api.guardrails.service.PostService;
@@ -18,7 +20,7 @@ public class PostController {
     private final PostService postService;
 
     @PostMapping
-    public ResponseEntity<Post> createPost(@RequestBody Post post) {
+    public ResponseEntity<Post> createPost(@RequestBody PostDto post) {
         try {
             Post savedPost = postService.createPost(post);
             return ResponseEntity.ok(savedPost);
@@ -28,7 +30,7 @@ public class PostController {
         return ResponseEntity.badRequest().build();
     }
     @PostMapping("/{postId}/comments")
-    public ResponseEntity<Comment> createComment(@PathVariable Long postId, @RequestBody Comment comment) {
+    public ResponseEntity<Comment> createComment(@PathVariable Long postId, @RequestBody CommentDto comment) {
         try {
             comment.setPostId(postId);
             Comment savedComment = postService.createComment(comment);
