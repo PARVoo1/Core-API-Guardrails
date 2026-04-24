@@ -33,17 +33,27 @@ public class PostService {
         return postRepository.save(newPost);
     }
     public Comment createComment(Comment comment) {
-        postRepository.findById(comment.getPostId())
+        Post post=postRepository.findById(comment.getPostId())
                 .orElseThrow(()->new RuntimeException("Post not found with id: "+comment.getPostId()));
         int calculatedDepth=1;
+        Comment parentComment=null;
+        Long targetAuthorId=post.getAuthorId();
+        AuthorType targetAuthorType=post.getAuthorType();
         if(comment.getParentCommentId()!=null){
-            Comment parentComment = commentRepository.findById(comment.getParentCommentId())
+            parentComment = commentRepository.findById(comment.getParentCommentId())
                     .orElseThrow(() -> new RuntimeException("Parent comment not found with id: "));
             calculatedDepth=parentComment.getDepthLevel()+1;
+            targetAuthorId=parentComment.getAuthorId();
+            targetAuthorType=parentComment.getAuthorType();
         }
 
-
         if(comment.getAuthorType()== AuthorType.BOT){
+            if (targetAuthorType==AuthorType.USER){
+                String coolDownKey="cooldown:bot_"+comment.getAuthorId()+":human_"+targetAuthorId;
+                if( redisTemplate.hasKey(coolDownKey)){
+                    throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Bot is on cooldown");
+                }
+            }
             if(calculatedDepth>20){
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid depth level");
             }
@@ -69,6 +79,11 @@ public class PostService {
         long points = (savedComment.getAuthorType() == AuthorType.BOT) ? 1 : 50;
 
         redisTemplate.opsForValue().increment(viralityKey, points);
+
+        if(targetAuthorType==AuthorType.USER&&savedComment.getAuthorType()==AuthorType.BOT){
+            String coolDownKey = "cooldown:bot_" +savedComment.getAuthorId()+ ":human_"+targetAuthorId;
+            redisTemplate.opsForValue().set(coolDownKey,"locked",10,java.util.concurrent.TimeUnit.MINUTES);
+        }
 
         return savedComment;
     }
