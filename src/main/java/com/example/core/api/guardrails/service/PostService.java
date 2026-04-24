@@ -6,12 +6,12 @@ import com.example.core.api.guardrails.entity.Comment;
 import com.example.core.api.guardrails.entity.Post;
 import com.example.core.api.guardrails.repository.CommentRepository;
 import com.example.core.api.guardrails.repository.PostRepository;
-import io.lettuce.core.output.ScanOutput;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
@@ -34,11 +34,12 @@ public class PostService {
 
         return postRepository.save(newPost);
     }
+    @Transactional
     public Comment createComment(Comment comment) {
         Post post=postRepository.findById(comment.getPostId())
                 .orElseThrow(()->new RuntimeException("Post not found with id: "+comment.getPostId()));
         int calculatedDepth=1;
-        Comment parentComment=null;
+        Comment parentComment;
         Long targetAuthorId=post.getAuthorId();
         AuthorType targetAuthorType=post.getAuthorType();
         if(comment.getParentCommentId()!=null){
@@ -110,11 +111,11 @@ public class PostService {
         String coolDownKey="user:"+userId+":cooldown";
         String pendingNotifs="user:"+userId+":pending";
         String notificationMessage="Bot:"+botId+" replied to your post";
-        if(redisTemplate.hasKey(coolDownKey)){
-            redisTemplate.opsForList().rightPush(pendingNotifs,notificationMessage);
-        }else{
-            log.info("Push Notification Sent to User: "+notificationMessage);
-            redisTemplate.opsForValue().set(coolDownKey,"locked",15,TimeUnit.MINUTES);
+        Boolean acquiredLock=redisTemplate.opsForValue().setIfAbsent(coolDownKey, "locked", 15, TimeUnit.MINUTES);
+        if(Boolean.TRUE.equals(acquiredLock)){
+            log.info("Push Notification Sent to User: {}", notificationMessage);
+        } else {
+            redisTemplate.opsForList().rightPush(pendingNotifs, notificationMessage);
         }
 
 
