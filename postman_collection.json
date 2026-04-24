@@ -1,0 +1,58 @@
+{
+  "info": {
+    "_postman_id": "26c793cc-ac5a-461f-8a15-b2ef33bd224f",
+    "name": "Post-Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "52683617",
+    "_collection_link": "https://go.postman.co/collection/52683617-26c793cc-ac5a-461f-8a15-b2ef33bd224f?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "NewPost",
+      "request": {
+        "method": "POST",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "NewComment",
+      "request": {
+        "method": "POST",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "New Request",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"authorId\":\"1\",\r\n    \"authorType\":\"USER\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/posts/3/like",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "posts",
+            "3",
+            "like"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
