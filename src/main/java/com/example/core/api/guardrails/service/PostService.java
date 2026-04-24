@@ -6,6 +6,7 @@ import com.example.core.api.guardrails.entity.Comment;
 import com.example.core.api.guardrails.entity.Post;
 import com.example.core.api.guardrails.repository.CommentRepository;
 import com.example.core.api.guardrails.repository.PostRepository;
+import io.lettuce.core.output.ScanOutput;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -82,7 +84,8 @@ public class PostService {
 
         if(targetAuthorType==AuthorType.USER&&savedComment.getAuthorType()==AuthorType.BOT){
             String coolDownKey = "cooldown:bot_" +savedComment.getAuthorId()+ ":human_"+targetAuthorId;
-            redisTemplate.opsForValue().set(coolDownKey,"locked",10,java.util.concurrent.TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set(coolDownKey,"locked",10,TimeUnit.MINUTES);
+            handleNotification(targetAuthorId,savedComment.getAuthorId());
         }
 
         return savedComment;
@@ -101,6 +104,19 @@ public class PostService {
         if(viralityPoints>0){
             redisTemplate.opsForValue().increment(viralityKey,viralityPoints);
         }
+
+    }
+    private void handleNotification(Long userId,Long botId){
+        String coolDownKey="user:"+userId+":cooldown";
+        String pendingNotifs="user:"+userId+":pending";
+        String notificationMessage="Bot:"+botId+" replied to your post";
+        if(redisTemplate.hasKey(coolDownKey)){
+            redisTemplate.opsForList().rightPush(pendingNotifs,notificationMessage);
+        }else{
+            log.info("Push Notification Sent to User: "+notificationMessage);
+            redisTemplate.opsForValue().set(coolDownKey,"locked",15,TimeUnit.MINUTES);
+        }
+
 
     }
 
